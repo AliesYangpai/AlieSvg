@@ -7,6 +7,7 @@
     tools:context=".MainActivity">
 
  <org.alie.aliesvg.view.AlieMapView
+     android:id="@+id/amv"
      android:layout_width="match_parent"
      android:layout_height="300dp" />
 

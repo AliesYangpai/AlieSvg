@@ -9,6 +9,8 @@ import android.graphics.RectF;
 import android.os.Handler;
 import android.os.Message;
 import android.util.AttributeSet;
+import android.util.Log;
+import android.view.MotionEvent;
 import android.view.View;
 
 import androidx.annotation.NonNull;
@@ -38,6 +40,13 @@ public class AlieMapView extends View {
     private Paint paint;
     private RectF mRectF;
     private float scale;
+    private Province targetProvinceDown;
+
+    private OnMapClickListener onMapClickListener;
+
+    public void setOnMapClickListener(OnMapClickListener onMapClickListener) {
+        this.onMapClickListener = onMapClickListener;
+    }
 
     public AlieMapView(Context context) {
         super(context);
@@ -72,15 +81,76 @@ public class AlieMapView extends View {
         if (provinces != null && provinces.size() > 0) {
             if (mRectF != null) {
                 double mapWidth = mRectF.width();
-                scale= (float) (getMeasuredWidth() / mapWidth);
+                scale = (float) (getMeasuredWidth() / mapWidth);
             }
             canvas.scale(scale, scale);
             for (Province province : provinces) {
-                province.drawItem(canvas, paint);
+                if (targetProvinceDown != null && targetProvinceDown.getName().equals(province.getName())) {
+                    targetProvinceDown.drawItem(canvas, paint, true);
+                    continue;
+                }
+                province.drawItem(canvas, paint, false);
+
+
             }
         }
 
     }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        return handleTouchEvent(event);
+    }
+
+    private boolean handleTouchEvent(MotionEvent event) {
+
+        boolean result = false;
+        if (provinces == null) {
+            return result;
+        }
+        int action = event.getAction();
+        float targetX = event.getX() / scale;
+        float targetY = event.getY() / scale;
+
+        switch (action) {
+            case MotionEvent.ACTION_DOWN:
+                Log.i("xxxx","===========MotionEvent.ACTION_DOWN");
+                targetProvinceDown = getTargetProvince(targetX, targetY);
+                postInvalidate();
+                break;
+            case MotionEvent.ACTION_UP:
+                Log.i("xxxx","@@@@@@@@@@@@MotionEvent.ACTION_UP");
+                Province targetProvinceUp = getTargetProvince(targetX, targetY);
+                if (targetProvinceDown != null && targetProvinceUp != null) {
+                    if (targetProvinceDown.getName().equals(targetProvinceUp.getName())) {
+                        onMapClickListener.onClick(targetProvinceUp);
+                        result = true;
+                    }
+                }
+                postInvalidate();
+                targetProvinceDown = null;
+                break;
+            case MotionEvent.ACTION_CANCEL:
+                targetProvinceDown = null;
+                postInvalidate();
+                result = false;
+                break;
+        }
+
+        return  result;
+    }
+
+
+    private Province getTargetProvince(float x, float y) {
+        Province targetProvince = null;
+        for (Province province : provinces) {
+            if (province.isTouch(x, x)) {
+                targetProvince = province;
+            }
+        }
+        return targetProvince;
+    }
+
 
     private Thread loadThread = new Thread() {
         @Override
@@ -102,6 +172,7 @@ public class AlieMapView extends View {
                     for (int i = 0; i < items.getLength(); i++) {
                         Element element = (Element) items.item(i);
                         String pathData = element.getAttribute("android:pathData"); // 得到目标pathData数据（当然了这里是String）
+                        String proviceName = element.getAttribute("android:provice");
                         Path path = PathParser.createPathFromPathData(pathData);
                         RectF rect = new RectF();
                         path.computeBounds(rect, true); // 计算边界
@@ -112,6 +183,7 @@ public class AlieMapView extends View {
 
                         Province province = new Province();
                         province.setPath(path);
+                        province.setName(proviceName);
                         provinces.add(province);
                     }
                     mRectF = new RectF(left, top, right, bottom);
@@ -122,7 +194,6 @@ public class AlieMapView extends View {
             }
         }
     };
-
 
 
 }
